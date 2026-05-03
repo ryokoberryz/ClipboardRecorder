@@ -24,16 +24,26 @@ class ClipboardAdapter(
     private var selectedItems = emptySet<Long>()
 
     fun setSelectionMode(mode: Boolean) {
+        val changed = isSelectionMode != mode
         isSelectionMode = mode
         if (!mode) {
             selectedItems = emptySet()
         }
-        notifyDataSetChanged()
+        if (changed) {
+            notifyItemRangeChanged(0, currentList.size, PAYLOAD_SELECTION)
+        }
     }
 
     fun setSelectedItems(items: Set<Long>) {
+        val previous = selectedItems
         selectedItems = items
-        notifyDataSetChanged()
+        val allChangedIds = previous union items
+        for (id in allChangedIds) {
+            val index = currentList.indexOfFirst { it.id == id }
+            if (index >= 0) {
+                notifyItemChanged(index, PAYLOAD_SELECTION)
+            }
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ClipboardViewHolder {
@@ -49,25 +59,35 @@ class ClipboardAdapter(
         holder.bind(getItem(position))
     }
 
+    override fun onBindViewHolder(holder: ClipboardViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.contains(PAYLOAD_SELECTION)) {
+            holder.bindSelection(getItem(position))
+        } else {
+            onBindViewHolder(holder, position)
+        }
+    }
+
     inner class ClipboardViewHolder(
         private val binding: ItemClipboardRecordBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(record: ClipboardRecord) {
             val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-            
+
             binding.tvTimestamp.text = dateFormat.format(Date(record.timestamp))
-            binding.tvContent.text = record.content
-            
-            val isSelected = selectedItems.contains(record.id)
-            binding.checkbox.visibility = if (isSelectionMode) View.VISIBLE else View.GONE
-            binding.checkbox.isChecked = isSelected
-            
-            binding.btnDelete.visibility = if (isSelectionMode) View.GONE else View.VISIBLE
-            
+
+            val content = record.content
+            binding.tvContent.text = if (content.length > 200) {
+                content.substring(0, 200) + "..."
+            } else {
+                content
+            }
+
+            bindSelection(record)
+
             binding.root.setOnClickListener {
                 if (isSelectionMode) {
-                    onSelectionChange(record.id, !isSelected)
+                    onSelectionChange(record.id, !selectedItems.contains(record.id))
                 } else {
                     onItemClick(record)
                 }
@@ -78,19 +98,19 @@ class ClipboardAdapter(
             }
 
             binding.checkbox.setOnClickListener {
-                onSelectionChange(record.id, !isSelected)
+                onSelectionChange(record.id, !selectedItems.contains(record.id))
             }
 
             binding.btnDelete.setOnClickListener {
                 onDeleteClick(record)
             }
+        }
 
-            val content = record.content
-            binding.tvContent.text = if (content.length > 200) {
-                content.substring(0, 200) + "..."
-            } else {
-                content
-            }
+        fun bindSelection(record: ClipboardRecord) {
+            val isSelected = selectedItems.contains(record.id)
+            binding.checkbox.visibility = if (isSelectionMode) View.VISIBLE else View.GONE
+            binding.checkbox.isChecked = isSelected
+            binding.btnDelete.visibility = if (isSelectionMode) View.GONE else View.VISIBLE
         }
     }
 
@@ -102,5 +122,9 @@ class ClipboardAdapter(
         override fun areContentsTheSame(oldItem: ClipboardRecord, newItem: ClipboardRecord): Boolean {
             return oldItem == newItem
         }
+    }
+
+    companion object {
+        private const val PAYLOAD_SELECTION = "selection"
     }
 }

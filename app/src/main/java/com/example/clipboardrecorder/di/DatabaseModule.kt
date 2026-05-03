@@ -23,7 +23,8 @@ object DatabaseModule {
             context,
             ClipboardDatabase::class.java,
             "clipboard_database"
-        ).build()
+        ).fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides

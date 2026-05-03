@@ -8,6 +8,5 @@ data class ClipboardRecord(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val content: String,
-    val timestamp: Long = System.currentTimeMillis(),
-    var isFavorite: Boolean = false
+    val timestamp: Long = System.currentTimeMillis()
 )

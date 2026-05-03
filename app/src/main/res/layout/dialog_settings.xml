@@ -34,4 +34,18 @@
         android:inputType="number"
         android:text="30" />
 
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/switchShowToast"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/show_toast" />
+
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/switchAutoRecord"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/auto_record" />
+
 </LinearLayout>

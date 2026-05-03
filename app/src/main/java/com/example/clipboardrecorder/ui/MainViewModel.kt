@@ -5,7 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.clipboardrecorder.data.AppSettings
+import com.example.clipboardrecorder.data.model.AppSettings
 import com.example.clipboardrecorder.data.ClipboardRecord
 import com.example.clipboardrecorder.data.ClipboardRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -147,6 +147,18 @@ class MainViewModel @Inject constructor(
     fun clearAllRecords() {
         viewModelScope.launch {
             repository.deleteAllRecords()
+        }
+    }
+
+    fun updateShowToast(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.updateShowToast(enabled)
+        }
+    }
+
+    fun updateAutoRecord(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.updateAutoRecord(enabled)
         }
     }
 }

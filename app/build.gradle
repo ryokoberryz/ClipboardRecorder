@@ -13,8 +13,8 @@ android {
         applicationId "com.example.clipboardrecorder"
         minSdk 24
         targetSdk 34
-        versionCode 10
-        versionName "1.0"
+        versionCode 11
+        versionName "1.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -53,8 +53,8 @@ dependencies {
     implementation 'androidx.room:room-ktx:2.6.1'
     kapt 'androidx.room:room-compiler:2.6.1'
     
-    implementation 'com.google.dagger:hilt-android:2.48'
-    kapt 'com.google.dagger:hilt-compiler:2.48'
+    implementation 'com.google.dagger:hilt-android:2.50'
+    kapt 'com.google.dagger:hilt-compiler:2.50'
     
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
     

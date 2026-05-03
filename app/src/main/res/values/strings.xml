@@ -47,4 +47,6 @@
     <string name="service_started">剪贴板监听服务已启动</string>
     <string name="view_logs">查看日志</string>
     <string name="version">版本 %s</string>
+    <string name="show_toast">记录时弹出提示</string>
+    <string name="auto_record">自动记录模式（Android 10+ 推荐）</string>
 </resources>

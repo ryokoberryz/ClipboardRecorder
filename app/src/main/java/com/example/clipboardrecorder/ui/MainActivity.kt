@@ -363,6 +363,8 @@ class MainActivity : AppCompatActivity() {
             viewModel.settings.collect { settings ->
                 dialogBinding.etMaxRecords.setText(settings.maxRecords.toString())
                 dialogBinding.etRetentionDays.setText(settings.retentionDays.toString())
+                dialogBinding.switchShowToast.isChecked = settings.showToast
+                dialogBinding.switchAutoRecord.isChecked = settings.autoRecordEnabled
             }
         }
 
@@ -372,10 +374,14 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton(R.string.save) { _, _ ->
                 val maxRecords = dialogBinding.etMaxRecords.text.toString().toIntOrNull() ?: 100
                 val retentionDays = dialogBinding.etRetentionDays.text.toString().toIntOrNull() ?: 30
-                
+                val showToast = dialogBinding.switchShowToast.isChecked
+                val autoRecord = dialogBinding.switchAutoRecord.isChecked
+
                 viewModel.updateMaxRecords(maxRecords)
                 viewModel.updateRetentionDays(retentionDays)
-                
+                viewModel.updateShowToast(showToast)
+                viewModel.updateAutoRecord(autoRecord)
+
                 Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton(R.string.cancel, null)

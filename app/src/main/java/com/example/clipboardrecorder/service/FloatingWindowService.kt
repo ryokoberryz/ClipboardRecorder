@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.Toast
 import com.example.clipboardrecorder.R
@@ -114,6 +115,7 @@ class FloatingWindowService : android.app.Service() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupTouchListener(layoutParams: WindowManager.LayoutParams) {
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         var initialX = 0
         var initialY = 0
         var initialTouchX = 0f
@@ -133,8 +135,8 @@ class FloatingWindowService : android.app.Service() {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (event.rawX - initialTouchX).toInt()
                     val dy = (event.rawY - initialTouchY).toInt()
-                    
-                    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+
+                    if (Math.abs(dx) > touchSlop || Math.abs(dy) > touchSlop) {
                         isMoved = true
                         layoutParams.x = initialX + dx
                         layoutParams.y = initialY + dy

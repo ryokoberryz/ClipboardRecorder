@@ -10,7 +10,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.PowerManager
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
@@ -18,6 +17,7 @@ import com.example.clipboardrecorder.ClipboardApp
 import com.example.clipboardrecorder.R
 import com.example.clipboardrecorder.data.ClipboardRepository
 import com.example.clipboardrecorder.ui.MainActivity
+import com.example.clipboardrecorder.ui.TransparentActivity
 import com.example.clipboardrecorder.utils.AppLogger
 import com.example.clipboardrecorder.utils.ClipboardHelper
 import dagger.hilt.android.AndroidEntryPoint
@@ -25,7 +25,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -37,36 +40,35 @@ class ClipboardListenerService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var clipboardManager: ClipboardManager? = null
     private var lastClipboardText: String = ""
-    private var lastClipboardTime: Long = 0
-    
+    private var lastSaveTime: Long = 0
+    private var lastAutoLaunchTime: Long = 0
+
     private val handler = Handler(Looper.getMainLooper())
-    private val checkInterval = 300L
-    
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var isServiceRunning = false
-    
+
+    private val isServiceRunning = AtomicBoolean(false)
+    @Volatile
+    private var showToast = true
+    @Volatile
+    private var autoRecordEnabled = false
+
+    private val debounceIntervalMs = 500L
+
     private val clipChangedListener = ClipboardManager.OnPrimaryClipChangedListener {
-        AppLogger.d(TAG, "剪贴板变化事件触发")
+        AppLogger.d(TAG, "剪贴板变化事件触发, autoRecord=$autoRecordEnabled")
         handler.post {
-            checkClipboard("监听器回调")
-        }
-    }
-    
-    private val periodicCheckRunnable = object : Runnable {
-        override fun run() {
-            if (isServiceRunning) {
-                checkClipboard("定时检查")
-                handler.postDelayed(this, checkInterval)
+            if (autoRecordEnabled) {
+                launchAutoRecord()
+            } else {
+                checkClipboard()
             }
         }
     }
-    
-    private val restartRunnable = object : Runnable {
+
+    private val healthCheckRunnable = object : Runnable {
         override fun run() {
-            if (isServiceRunning) {
-                AppLogger.d(TAG, "定期重启服务检查")
+            if (isServiceRunning.get()) {
                 reRegisterClipboardListener()
-                handler.postDelayed(this, 30000)
+                handler.postDelayed(this, 300_000L)
             }
         }
     }
@@ -98,38 +100,36 @@ class ClipboardListenerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        isServiceRunning = true
-        AppLogger.i(TAG, "服务创建 - 版本 0.5")
+        isServiceRunning.set(true)
+        AppLogger.i(TAG, "服务创建")
         Log.d(TAG, "Service onCreate")
-        
-        acquireWakeLock()
+
         startForeground(NOTIFICATION_ID, createNotification())
+        loadInitialSettings()
         registerClipboardListener()
-        startPeriodicCheck()
-        startRestartCheck()
-        checkClipboard("服务启动")
+        startHealthCheck()
+        observeSettings()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         AppLogger.d(TAG, "服务启动命令, action: ${intent?.action}")
         Log.d(TAG, "Service onStartCommand, action: ${intent?.action}")
-        
+
         when (intent?.action) {
             ACTION_STOP -> {
-                isServiceRunning = false
+                isServiceRunning.set(false)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
             }
         }
-        
-        if (!isServiceRunning) {
-            isServiceRunning = true
+
+        if (!isServiceRunning.get()) {
+            isServiceRunning.set(true)
             registerClipboardListener()
-            startPeriodicCheck()
-            startRestartCheck()
+            startHealthCheck()
         }
-        
+
         return START_STICKY
     }
 
@@ -138,41 +138,11 @@ class ClipboardListenerService : Service() {
     override fun onDestroy() {
         AppLogger.w(TAG, "服务销毁")
         Log.d(TAG, "Service onDestroy")
-        isServiceRunning = false
+        isServiceRunning.set(false)
         unregisterClipboardListener()
-        stopPeriodicCheck()
-        stopRestartCheck()
+        stopHealthCheck()
         handler.removeCallbacksAndMessages(null)
-        releaseWakeLock()
         serviceScope.cancel()
-    }
-    
-    private fun acquireWakeLock() {
-        try {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            wakeLock = powerManager.newWakeLock(
-                PowerManager.PARTIAL_WAKE_LOCK,
-                "ClipboardRecorder::ClipboardService"
-            ).apply {
-                acquire(10 * 60 * 1000L)
-            }
-            AppLogger.i(TAG, "WakeLock已获取")
-        } catch (e: Exception) {
-            AppLogger.e(TAG, "获取WakeLock失败", e)
-        }
-    }
-    
-    private fun releaseWakeLock() {
-        try {
-            wakeLock?.let {
-                if (it.isHeld) {
-                    it.release()
-                    AppLogger.i(TAG, "WakeLock已释放")
-                }
-            }
-        } catch (e: Exception) {
-            AppLogger.e(TAG, "释放WakeLock失败", e)
-        }
     }
 
     private fun createNotification(): Notification {
@@ -189,7 +159,7 @@ class ClipboardListenerService : Service() {
             .setSmallIcon(R.drawable.ic_clipboard)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
     }
@@ -200,15 +170,13 @@ class ClipboardListenerService : Service() {
         clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboardManager?.addPrimaryClipChangedListener(clipChangedListener)
         AppLogger.i(TAG, "剪贴板监听器注册成功")
-        Log.d(TAG, "Clipboard listener registered successfully")
     }
 
     private fun unregisterClipboardListener() {
         AppLogger.d(TAG, "注销剪贴板监听器")
-        Log.d(TAG, "Unregistering clipboard listener")
         clipboardManager?.removePrimaryClipChangedListener(clipChangedListener)
     }
-    
+
     private fun reRegisterClipboardListener() {
         AppLogger.d(TAG, "重新注册剪贴板监听器")
         try {
@@ -219,35 +187,74 @@ class ClipboardListenerService : Service() {
             AppLogger.e(TAG, "重新注册监听器失败", e)
         }
     }
-    
-    private fun startPeriodicCheck() {
-        AppLogger.i(TAG, "启动定时检查机制，间隔: ${checkInterval}ms")
-        handler.post(periodicCheckRunnable)
-    }
-    
-    private fun stopPeriodicCheck() {
-        AppLogger.d(TAG, "停止定时检查")
-        handler.removeCallbacks(periodicCheckRunnable)
-    }
-    
-    private fun startRestartCheck() {
-        AppLogger.i(TAG, "启动定期重启检查")
-        handler.postDelayed(restartRunnable, 30000)
-    }
-    
-    private fun stopRestartCheck() {
-        AppLogger.d(TAG, "停止定期重启检查")
-        handler.removeCallbacks(restartRunnable)
+
+    private fun startHealthCheck() {
+        handler.postDelayed(healthCheckRunnable, 300_000L)
     }
 
-    private fun checkClipboard(source: String) {
-        val text = ClipboardHelper.readClipboardText(this, source)
-        
-        if (text != null && text != lastClipboardText) {
-            val currentTime = System.currentTimeMillis()
-            lastClipboardText = text
-            lastClipboardTime = currentTime
-            onClipboardChanged(text)
+    private fun stopHealthCheck() {
+        handler.removeCallbacks(healthCheckRunnable)
+    }
+
+    private fun loadInitialSettings() {
+        runBlocking {
+            try {
+                val settings = repository.settings.first()
+                showToast = settings.showToast
+                autoRecordEnabled = settings.autoRecordEnabled
+                AppLogger.i(TAG, "初始设置加载完成, autoRecord=$autoRecordEnabled")
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "加载初始设置失败", e)
+            }
+        }
+    }
+
+    private fun observeSettings() {
+        serviceScope.launch {
+            repository.settings.collect { settings ->
+                showToast = settings.showToast
+                autoRecordEnabled = settings.autoRecordEnabled
+            }
+        }
+    }
+
+    private fun checkClipboard() {
+        val text = ClipboardHelper.readClipboardText(this)
+
+        if (text == null || text == lastClipboardText) return
+
+        val now = System.currentTimeMillis()
+        if (now - lastSaveTime < debounceIntervalMs) return
+
+        lastClipboardText = text
+        lastSaveTime = now
+        onClipboardChanged(text)
+    }
+
+    private fun launchAutoRecord() {
+        val now = System.currentTimeMillis()
+        if (now - lastAutoLaunchTime < debounceIntervalMs) return
+
+        lastAutoLaunchTime = now
+        AppLogger.i(TAG, "自动记录模式：通过PendingIntent启动透明Activity")
+        val intent = Intent(this, TransparentActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
+        }
+        try {
+            val pi = PendingIntent.getActivity(
+                this,
+                1002,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            pi.send()
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "自动记录启动失败，回退到startActivity", e)
+            try {
+                startActivity(intent)
+            } catch (e2: Exception) {
+                AppLogger.e(TAG, "startActivity也失败", e2)
+            }
         }
     }
 
@@ -260,13 +267,15 @@ class ClipboardListenerService : Service() {
                     val id = repository.insertRecord(text)
                     AppLogger.i(TAG, "剪贴板内容保存成功, ID: $id")
                     Log.d(TAG, "Clipboard text saved successfully, id: $id")
-                    
-                    handler.post {
-                        Toast.makeText(
-                            this@ClipboardListenerService,
-                            "已记录: ${text.take(20)}${if (text.length > 20) "..." else ""}",
-                            Toast.LENGTH_SHORT
-                        ).show()
+
+                    if (showToast) {
+                        handler.post {
+                            Toast.makeText(
+                                this@ClipboardListenerService,
+                                "已记录: ${text.take(20)}${if (text.length > 20) "..." else ""}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
                 } catch (e: Exception) {
                     AppLogger.e(TAG, "保存剪贴板内容失败", e)

@@ -9,8 +9,6 @@ object AppLogger {
     private const val MAX_LOG_SIZE = 200
     private val logs = ConcurrentLinkedDeque<String>()
     private val dateFormat = SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.getDefault())
-    
-    private val listeners = mutableListOf<(String) -> Unit>()
 
     fun d(tag: String, message: String) {
         addLog("D", tag, message)
@@ -33,17 +31,16 @@ object AppLogger {
         addLog("W", tag, message)
     }
 
+    @Synchronized
     private fun addLog(level: String, tag: String, message: String) {
         val timestamp = dateFormat.format(Date())
         val logEntry = "[$timestamp] $level/$tag: $message"
-        
+
         logs.addFirst(logEntry)
-        
+
         while (logs.size > MAX_LOG_SIZE) {
             logs.removeLast()
         }
-        
-        notifyListeners(logEntry)
     }
 
     fun getLogs(): String {
@@ -52,24 +49,5 @@ object AppLogger {
 
     fun clearLogs() {
         logs.clear()
-        notifyListeners("日志已清空")
-    }
-
-    fun addListener(listener: (String) -> Unit) {
-        listeners.add(listener)
-    }
-
-    fun removeListener(listener: (String) -> Unit) {
-        listeners.remove(listener)
-    }
-
-    private fun notifyListeners(newLog: String) {
-        listeners.forEach { listener ->
-            try {
-                listener(newLog)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
     }
 }

@@ -1,6 +1,7 @@
 package com.example.clipboardrecorder.data
 
 import com.example.clipboardrecorder.data.local.SettingsDataStore
+import com.example.clipboardrecorder.data.model.AppSettings
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -73,10 +74,12 @@ class ClipboardRepository @Inject constructor(
     suspend fun updateAutoCleanup(enabled: Boolean) {
         settingsDataStore.updateAutoCleanup(enabled)
     }
-}
 
-data class AppSettings(
-    val maxRecords: Int = 100,
-    val retentionDays: Int = 30,
-    val autoCleanup: Boolean = true
-)
+    suspend fun updateShowToast(enabled: Boolean) {
+        settingsDataStore.updateShowToast(enabled)
+    }
+
+    suspend fun updateAutoRecord(enabled: Boolean) {
+        settingsDataStore.updateAutoRecord(enabled)
+    }
+}
