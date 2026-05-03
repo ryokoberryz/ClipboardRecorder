@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">剪贴板记录器</string>
+    <string name="notification_title">剪贴板监听服务</string>
+    <string name="notification_text">正在监听剪贴板内容</string>
+    
+    <string name="search_hint">搜索记录</string>
+    <string name="select">选择</string>
+    <string name="select_all">全选</string>
+    <string name="cancel">取消</string>
+    <string name="delete">删除</string>
+    <string name="copy">复制</string>
+    <string name="export">导出</string>
+    <string name="export_all">全部导出</string>
+    
+    <string name="selected_count">已选择 %d 条</string>
+    <string name="no_records">暂无记录</string>
+    <string name="no_records_selected">请选择要操作的记录</string>
+    
+    <string name="settings">设置</string>
+    <string name="save">保存</string>
+    <string name="max_records">最大记录条数</string>
+    <string name="max_records_hint">输入最大记录条数（0表示不限制）</string>
+    <string name="retention_days">保存天数</string>
+    <string name="retention_days_hint">输入保存天数（0表示永久保存）</string>
+    <string name="settings_saved">设置已保存</string>
+    
+    <string name="delete_record">删除记录</string>
+    <string name="delete_record_message">确定要删除这条记录吗？</string>
+    <string name="delete_selected">删除选中记录</string>
+    <string name="delete_selected_message">确定要删除选中的 %d 条记录吗？</string>
+    
+    <string name="copy_success">已复制到剪贴板</string>
+    <string name="export_records">导出记录</string>
+    <string name="export_success">导出成功：%s</string>
+    <string name="export_failed">导出失败</string>
+    
+    <string name="permission_denied_message">需要通知权限才能正常运行</string>
+    
+    <string name="app_logs">应用日志</string>
+    <string name="clear_logs">清空</string>
+    <string name="copy_logs">复制</string>
+    <string name="logs_copied">日志已复制</string>
+    <string name="logs_cleared">日志已清空</string>
+    <string name="restart_service">重启服务</string>
+    <string name="service_restarted">服务已重启</string>
+    <string name="service_started">剪贴板监听服务已启动</string>
+    <string name="view_logs">查看日志</string>
+    <string name="version">版本 %s</string>
+</resources>

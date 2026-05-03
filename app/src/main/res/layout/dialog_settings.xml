@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/max_records"
+        android:textSize="16sp" />
+
+    <EditText
+        android:id="@+id/etMaxRecords"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/max_records_hint"
+        android:inputType="number"
+        android:text="100" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/retention_days"
+        android:textSize="16sp" />
+
+    <EditText
+        android:id="@+id/etRetentionDays"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/retention_days_hint"
+        android:inputType="number"
+        android:text="30" />
+
+</LinearLayout>
